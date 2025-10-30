@@ -3,38 +3,43 @@ import pandas as pd
 import numpy as np
 from q7_autocorrelation import autocorrelation_test, parse_input_numbers
 
+# Page setup
 st.set_page_config(page_title="Q7: Autocorrelation Test", layout="wide")
 
 st.title("Question 7: Autocorrelation Test")
 st.markdown("### Test for Autocorrelation in Random Numbers")
 
+# quick reminder of what the hypotheses mean
 st.markdown("""
 **Hypothesis:**
 - H₀: ρᵢ,ₘ = 0 (numbers are independent)
 - H₁: ρᵢ,ₘ ≠ 0 (numbers are dependent)
 """)
 
-# Sidebar for parameters
+# Sidebar inputs for parameters
 st.sidebar.header("Test Parameters")
+
+# basic inputs — starting position, lag, and significance level
 i = st.sidebar.number_input("Starting position (i)", min_value=1, value=5, step=1)
 m = st.sidebar.number_input("Lag (m)", min_value=1, value=5, step=1)
 alpha = st.sidebar.number_input("Significance level (α)", min_value=0.01, max_value=0.99, value=0.05, step=0.01)
 
 st.sidebar.info(f"Will test correlation between numbers separated by {m} lag positions.")
-st.sidebar.markdown("**Note:** N = total numbers in dataset, M = N - m = pairs used in test")
+st.sidebar.markdown("**Note:** N = total numbers, M = N - m = pairs used in test")
 
-# Default data
+# default dataset to test with (so user doesn’t have to type in numbers)
 default_data = """0.63 0.28 0.30 0.42 0.97 0.05 0.71 0.63 0.17 0.86
 0.61 0.19 0.94 0.64 0.84 0.54 0.56 0.57 0.09 0.99
 0.01 0.10 0.69 0.38 0.93 0.85 0.68 0.14 0.18 0.84
 0.19 0.71 0.44 0.72 0.95 0.28 0.96 0.51 0.50 0.89
 0.66 0.31 0.50 0.33 0.89 0.54 0.73 0.76 0.62 0.92"""
 
-# Input section
+# main section for input
 st.header("Input Random Numbers")
 col1, col2 = st.columns([2, 1])
 
 with col1:
+    # let user choose between default data and custom entry
     input_method = st.radio("Input Method:", ["Use Default Data", "Enter Custom Data"])
     
     if input_method == "Use Default Data":
@@ -46,6 +51,7 @@ with col1:
                                     placeholder="Enter numbers separated by spaces or commas")
 
 with col2:
+    # quick summary of parameters for reference
     st.markdown("**Parameters:**")
     st.info(f"""
     - i = {i} (starting position)
@@ -54,7 +60,7 @@ with col2:
     - M = N - m (computed automatically)
     """)
 
-# Run test button
+# Run the test
 if st.button("Run Autocorrelation Test", type="primary"):
     if numbers_text.strip():
         numbers = parse_input_numbers(numbers_text)
@@ -64,15 +70,13 @@ if st.button("Run Autocorrelation Test", type="primary"):
         else:
             st.success(f"Parsed {len(numbers)} numbers from input (N = {len(numbers)})")
             
-            # Display input data
+            # show numbers in a clean grid format for readability
             st.subheader("Input Data")
-            num_cols = 10
+            num_cols = 10  # display 10 numbers per row
             num_rows = (len(numbers) + num_cols - 1) // num_cols
             padded_numbers = numbers + [None] * (num_rows * num_cols - len(numbers))
             reshaped = np.array(padded_numbers).reshape(num_rows, num_cols)
             
-            # Position labels
-            position_labels = np.arange(1, len(numbers) + 1)
             grid_data = []
             for r in range(num_rows):
                 row_data = {}
@@ -86,7 +90,7 @@ if st.button("Run Autocorrelation Test", type="primary"):
             df_input = pd.DataFrame(grid_data)
             st.dataframe(df_input, use_container_width=True)
 
-            # Run the autocorrelation test
+            # actually run the test now
             result = autocorrelation_test(numbers, i, m, alpha)
 
             if result['error']:
@@ -95,7 +99,7 @@ if st.button("Run Autocorrelation Test", type="primary"):
                 st.subheader("Test Results")
                 st.success(f"**M = {result['M']}** (pairs formed from total N = {result['N']})")
 
-                # Display key metrics
+                # key metrics up top for quick view
                 st.markdown("---")
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
@@ -118,7 +122,7 @@ if st.button("Run Autocorrelation Test", type="primary"):
                     decision = "REJECT H₀" if result['reject_H0'] else "FAIL TO REJECT H₀"
                     st.metric("Decision", decision)
 
-                # Detailed results
+                # more detailed breakdown
                 st.markdown("---")
                 st.subheader("Detailed Analysis")
                 col1, col2 = st.columns(2)
@@ -148,21 +152,20 @@ if st.button("Run Autocorrelation Test", type="primary"):
     else:
         st.warning("Please enter some numbers to test!")
 
-# Instructions
+# collapsible instructions at the bottom
 with st.expander("ℹ️ How to use this tool"):
     st.markdown("""
-    1. **Set Parameters** in the sidebar:
-       - **i**: Starting position in the sequence
-       - **m**: Lag (distance between numbers compared)
-       - **α**: Significance level
+    1. **Set Parameters** from the sidebar:
+       - **i**: Starting position in the list
+       - **m**: Lag (how far apart the numbers are)
+       - **α**: Significance level (default 0.05)
     
-    2. **Understanding the test**:
-       - **N** = Total numbers in dataset
-       - **M = N - m** = Number of pairs used
+    2. **What the test does:**
        - Calculates the autocorrelation coefficient \( r_m \)
-       - Computes test statistic \( Z₀ = r_m \sqrt{N} \)
+       - Then computes \( Z₀ = r_m \sqrt{N} \)
+       - Compares |Z₀| with the critical Z value for your α
     
-    3. **Decision Rule**:
-       - If |Z₀| > Z critical → Reject H₀ (autocorrelation detected)
+    3. **Decision:**
+       - If |Z₀| > Z critical → Reject H₀ (autocorrelation exists)
        - If |Z₀| ≤ Z critical → Fail to reject H₀ (numbers are independent)
     """)
