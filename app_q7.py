@@ -1,7 +1,12 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-from q7_autocorrelation import autocorrelation_test, parse_input_numbers
+from q7_autocorrelation import autocorrelation_test, parse_input_numbers # Assuming these functions are available
+
+def generate_random_numbers(length):
+    """Generates a string of space-separated random numbers between 0 and 1."""
+    return " ".join([f"{x:.4f}" for x in np.random.rand(length)])
+
 
 # Page setup
 st.set_page_config(page_title="Q7: Autocorrelation Test", layout="wide")
@@ -22,7 +27,13 @@ st.sidebar.header("Test Parameters")
 # basic inputs — starting position, lag, and significance level
 i = st.sidebar.number_input("Starting position (i)", min_value=1, value=5, step=1)
 m = st.sidebar.number_input("Lag (m)", min_value=1, value=5, step=1)
-alpha = st.sidebar.number_input("Significance level (α)", min_value=0.01, max_value=0.99, value=0.05, step=0.01)
+
+# Significance value as a dropdown**
+alpha = st.sidebar.selectbox(
+    "Significance level (α)", 
+    options=[0.1, 0.05, 0.01], # Use a list for dropdown options
+    index=1 # Default to 0.05
+)
 
 st.sidebar.info(f"Will test correlation between numbers separated by {m} lag positions.")
 st.sidebar.markdown("**Note:** N = total numbers, M = N - m = pairs used in test")
@@ -39,16 +50,32 @@ st.header("Input Random Numbers")
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    # let user choose between default data and custom entry
-    input_method = st.radio("Input Method:", ["Use Default Data", "Enter Custom Data"])
+    # let user choose between default data, custom entry, and random generation
+    input_method = st.radio("Input Method:", ["Use Default Data", "Enter Custom Data", "Generate Random Numbers"])
     
     if input_method == "Use Default Data":
         numbers_text = st.text_area("Random Numbers (space or comma separated):", 
                                     value=default_data, height=150)
-    else:
+    elif input_method == "Enter Custom Data":
         numbers_text = st.text_area("Random Numbers (space or comma separated):", 
                                     value="", height=150, 
                                     placeholder="Enter numbers separated by spaces or commas")
+    #  Option to generate random numbers with a slider**
+    elif input_method == "Generate Random Numbers":
+        random_length = st.slider("Length of Random Numbers (N)", min_value=10, max_value=500, value=50, step=10)
+        # Generate the numbers only once or when the length changes
+        if st.button(f"Generate {random_length} Numbers"):
+            st.session_state['random_numbers'] = generate_random_numbers(random_length)
+        
+        # Initialize session state key if it doesn't exist
+        if 'random_numbers' not in st.session_state:
+            st.session_state['random_numbers'] = generate_random_numbers(random_length)
+            
+        numbers_text = st.text_area("Generated Random Numbers (space separated):", 
+                                    value=st.session_state['random_numbers'], height=150)
+        
+        st.info(f"Generated {len(parse_input_numbers(numbers_text))} numbers.") # quick check on parsed length
+
 
 with col2:
     # quick summary of parameters for reference
@@ -83,7 +110,8 @@ if st.button("Run Autocorrelation Test", type="primary"):
                 for c in range(num_cols):
                     idx = r * num_cols + c
                     if idx < len(numbers):
-                        row_data[f"Pos {idx+1}"] = f"{numbers[idx]:.2f}"
+                        # Ensure all numbers are formatted consistently, even with None padding logic
+                        row_data[f"Pos {idx+1}"] = f"{numbers[idx]:.4f}" # changed to 4 decimal places for consistency
                     else:
                         row_data[f"Col {c+1}"] = ""
                 grid_data.append(row_data)

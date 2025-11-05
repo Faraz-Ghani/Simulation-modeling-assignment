@@ -2,10 +2,6 @@ import numpy as np
 from scipy import stats
 
 def parse_input_numbers(input_text):
-    """
-    Takes raw text input and pulls out all the numbers from it.
-    Works even if numbers are separated by spaces, commas, or new lines.
-    """
     numbers = []
     lines = input_text.strip().split('\n')  # split by lines in case input has multiple rows
 
@@ -24,38 +20,49 @@ def parse_input_numbers(input_text):
 
 def autocorrelation_test(numbers, i, m, alpha=0.05):
     """
-    Performs a simple autocorrelation test on a sequence of numbers.
-    
     H0: numbers are independent (no autocorrelation)
     H1: numbers are dependent (autocorrelation exists)
     """
     N = len(numbers)  # total number of values
+    numbers_array = np.array(numbers)
 
-    # make sure we have enough numbers for the lag and starting index
-    if N < (m + i):
+    # The minimum required is i + (M+1)m <= N.
+    if N < i or N < (i + m):
         return {
-            'error': f'Not enough data for i={i}, m={m}. Need at least {i+m} numbers, got {N}.',
+            'error': f'Not enough data. Need starting index i={i} and lag m={m}, but got N={N}.',
             'positions': [],
-            'subsequence': []
+            'subsequence': [],
+            'r_m': 0, 'Z0': 0, 'Z_critical': 0, 'reject_H0': False, 'conclusion': ''
         }
 
-    numbers = np.array(numbers)
-    mean_u = np.mean(numbers)  # mean of all numbers
+    # M = Number of pairs
+    M = int(np.floor((N - i) / m)) - 1
+    
+    if M < 0:
+        return {
+            'error': f'Not enough pairs can be formed. M = {M}. Check i={i} and m={m} against N={N}.',
+            'positions': [],
+            'subsequence': [],
+            'r_m': 0, 'Z0': 0, 'Z_critical': 0, 'reject_H0': False, 'conclusion': ''
+        }
+    
+    # extract the subsequences for R_{i+km} and R_{i+(k+1)m}
+    R_km = numbers_array[ (i-1) + np.arange(M + 1) * m ]
+    
+    R_k_plus_1_m = numbers_array[ (i-1) + np.arange(1, M + 2) * m ]
 
-    # M = how many pairs we can form after applying lag
-    M = N - m
+    sum_R_R = np.sum(R_km * R_k_plus_1_m)
+    rho_hat_im = (1 / (M + 1)) * sum_R_R - 0.25
 
-    # numerator: sum of (x_i - mean) * (x_(i+m) - mean)
-    numerator = np.sum((numbers[:M] - mean_u) * (numbers[m:] - mean_u))
+    sigma_rho_hat_im = np.sqrt(13 * M + 7) / (12 * (M + 1))
 
-    # denominator: sum of (x_i - mean)^2 for all i
-    denominator = np.sum((numbers - mean_u) ** 2)
+    # Z0 = rho_hat_im / sigma_rho_hat_im
+    Z0 = rho_hat_im / sigma_rho_hat_im
+
+    mean_u = np.mean(numbers) 
 
     # serial correlation coefficient (r_m)
-    r_m = numerator / denominator
-
-    # test statistic under H0 ~ N(0,1)
-    Z0 = r_m * np.sqrt(N)
+    r_m = rho_hat_im 
 
     # two-tailed critical value for the given alpha
     Z_critical = stats.norm.ppf(1 - alpha / 2)
@@ -72,7 +79,7 @@ def autocorrelation_test(numbers, i, m, alpha=0.05):
 
     # optional – just to show which positions were used
     positions = list(range(1, N + 1))
-    subsequence = numbers.tolist()
+    subsequence = numbers_array.tolist()
 
     return {
         'N': N,
